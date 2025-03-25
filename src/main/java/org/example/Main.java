@@ -61,7 +61,17 @@ public class Main {
 
 
         public static void main(String[] args) throws Exception {
-            TaskExecutorService taskExecutorService = new TaskExecutorService(4);
+
+       try {
+           TaskExecutorService taskExecutorService = TaskExecutorService.create(4);
+            
+            // This would throw an exception
+            // TaskExecutorService taskExecutorService = TaskExecutorService.create(0);
+        } catch (RuntimeException e) {
+            System.out.println("Error creating executor: " + e.getMessage());
+        }
+    }
+            
             TaskGroup group = new TaskGroup(UUID.randomUUID());
             Task<String> readTask = new Task<>(UUID.randomUUID(),group,TaskType.READ, ()->
             {
