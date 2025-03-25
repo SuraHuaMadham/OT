@@ -13,14 +13,33 @@ public class TaskExecutorService implements Main.TaskExecutor {
     private final BlockingQueue<TaskVsFuture<?>> queue = new LinkedBlockingQueue<>();
 
     public TaskExecutorService(int concurrency) {
-        if(concurrency<0){
-            throw  new IllegalArgumentException("Illegal concurrency");
+        if(concurrency<=0){
+            throw new IllegalArgumentException("Concurrency must be a positive integer. Provided value: " + concurrency);
         }
-        this.executorService = Executors.newFixedThreadPool(concurrency);
+        this.executorService = Executors.newFixedThreadPool(concurrency, new ThreadFactory() {
+        private final AtomicInteger threadCounter = new AtomicInteger(1);
+        
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread thread = new Thread(r, "TaskExecutor-Thread-" + threadCounter.getAndIncrement());
+            thread.setDaemon(true); // Ensure threads don't prevent JVM shutdown
+            return thread;
+        }
+    });
         this.concurrency = concurrency;
 
         Thread mainThread = new Thread(this::startTask);
         mainThread.start();
+    }
+
+    public static TaskExecutorService create(int concurrency) {
+        try {
+            return new TaskExecutorService(concurrency);
+        } catch (IllegalArgumentException e) {
+            // Logging the error
+            System.err.println("Failed to create TaskExecutor: " + e.getMessage());
+            throw new RuntimeException("Unable to create TaskExecutor with given concurrency", e);
+        }
     }
 
     private void startTask(){
