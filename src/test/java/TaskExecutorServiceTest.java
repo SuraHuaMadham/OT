@@ -16,6 +16,7 @@ public class TaskExecutorServiceTest {
         testReadConcurrency(taskExecutorService);
         testWriteSanity(taskExecutorService);
         testWriteConcurrency(taskExecutorService);
+        MultiGroupTaskExecutorTest();
         taskExecutorService.shutdown();
     }
 
@@ -138,6 +139,70 @@ public class TaskExecutorServiceTest {
         }
 
         System.out.println("Write Concurrent submission test passed");
+    }
+
+     private static void MultiGroupTaskExecutorTest() throws Exception {
+        TaskExecutorService executor = TaskExecutorService.create(3);
+        
+       
+        Main.TaskGroup readGroup = new Main.TaskGroup(UUID.randomUUID());
+        Main.TaskGroup writeGroup = new Main.TaskGroup(UUID.randomUUID());
+        
+        
+        AtomicInteger sharedCounter = new AtomicInteger(0);
+        
+        
+        List<Future<String>> futures = new ArrayList<>();
+        
+        
+        for (int i = 0; i < 2; i++) {
+            final int taskId = i;
+            Main.Task<String> readTask = new Main.Task<>(
+                UUID.randomUUID(),
+                readGroup,
+                Main.TaskType.READ,
+                () -> {
+                    System.out.println("Read Task " + taskId + " - Current Counter: " + sharedCounter.get());
+                    Thread.sleep(300);
+                    return "Read Task " + taskId + " Result";
+                }
+            );
+            futures.add(executor.submitTask(readTask));
+        }
+        
+        
+        for (int i = 0; i < 2; i++) {
+            final int taskId = i;
+            Main.Task<String> writeTask = new Main.Task<>(
+                UUID.randomUUID(),
+                writeGroup,
+                Main.TaskType.WRITE,
+                () -> {
+                    int newValue = sharedCounter.incrementAndGet();
+                    System.out.println("Write Task " + taskId + " - Updated Counter: " + newValue);
+                    Thread.sleep(400);
+                    return "Write Task " + taskId + " Result";
+                }
+            );
+            futures.add(executor.submitTask(writeTask));
+        }
+        
+       
+        System.out.println("\nRetrieving Results:");
+        for (Future<String> future : futures) {
+            try {
+                String result = future.get(2, TimeUnit.SECONDS);
+                System.out.println("Result: " + result);
+            } catch (Exception e) {
+                System.err.println("Task execution failed: " + e.getMessage());
+            }
+        }
+        
+        
+        System.out.println("\nFinal Counter Value: " + sharedCounter.get());
+        
+        
+        executor.shutdown();
     }
 
 }
